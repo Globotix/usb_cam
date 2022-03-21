@@ -128,6 +128,7 @@ class UsbCam {
   void open_device(void);
   void grab_image();
   bool is_capturing_;
+  bool use_full_range_scale_;
 
 
   std::string camera_dev_;

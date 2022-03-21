@@ -355,7 +355,7 @@ void rgb242rgb(char *YUV, char *RGB, int NumPixels)
 UsbCam::UsbCam()
   : io_(IO_METHOD_MMAP), fd_(-1), buffers_(NULL), n_buffers_(0), avframe_camera_(NULL),
     avframe_rgb_(NULL), avcodec_(NULL), avoptions_(NULL), avcodec_context_(NULL),
-    avframe_camera_size_(0), avframe_rgb_size_(0), video_sws_(NULL), image_(NULL), is_capturing_(false) {
+    avframe_camera_size_(0), avframe_rgb_size_(0), video_sws_(NULL), image_(NULL), is_capturing_(false), use_full_range_scale_(false){
 }
 UsbCam::~UsbCam()
 {
@@ -408,6 +408,7 @@ int UsbCam::init_special_decoder(int image_width, int image_height, enum AVCodec
 void UsbCam::mjpeg2rgb(char *MJPEG, int len, char *RGB, int NumPixels)
 {
   int got_picture;
+  enum AVPixelFormat avcodec_pix_fmt_temp = avcodec_context_->pix_fmt;
 
   memset(RGB, 0, avframe_rgb_size_);
 
@@ -444,8 +445,25 @@ void UsbCam::mjpeg2rgb(char *MJPEG, int len, char *RGB, int NumPixels)
     return;
   }
 
+  // (likely) avcodec_decode_video2 or avcodec_decode_video changed avcodec_context_->pix_fmt
+  // so have to force sws_getContext to use the pixel format we've prevously set here
+  if (use_full_range_scale_){
+    avcodec_context_->pix_fmt = avcodec_pix_fmt_temp;
+  }
+
   video_sws_ = sws_getContext(xsize, ysize, avcodec_context_->pix_fmt, xsize, ysize, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL,
-			      NULL,  NULL);
+            NULL,  NULL);
+
+  // rescaling color range...
+  if (use_full_range_scale_)
+  {
+    int* _temp_coefs;
+    int _srcRange, _dstRange, _brightness, _contrast, _saturation;
+    sws_getColorspaceDetails(video_sws_, &_temp_coefs, &_srcRange, &_temp_coefs, &_dstRange, &_brightness, &_contrast, &_saturation);
+    const int* _coefs = sws_getCoefficients(SWS_CS_DEFAULT);
+    sws_setColorspaceDetails(video_sws_, _coefs, 1, _coefs, _dstRange, _brightness, _contrast, _saturation);
+  }
+
   sws_scale(video_sws_, avframe_camera_->data, avframe_camera_->linesize, 0, ysize, avframe_rgb_->data,
             avframe_rgb_->linesize);
   sws_freeContext(video_sws_);
@@ -1043,7 +1061,8 @@ void UsbCam::start(const std::string& dev, io_method io_method,
   else if (pixel_format == PIXEL_FORMAT_MJPEG_YUVJ420P)
   {
     pixelformat_ = V4L2_PIX_FMT_MJPEG;
-    init_special_decoder(image_width, image_height, AV_CODEC_ID_MJPEG, AV_PIX_FMT_YUVJ420P);
+    use_full_range_scale_ = true;
+    init_special_decoder(image_width, image_height, AV_CODEC_ID_MJPEG, AV_PIX_FMT_YUV420P);
   }
   else
   {

@@ -1,5 +1,8 @@
 usb_cam <!-- [![Build Status](https://api.travis-ci.org/bosch-ros-pkg/usb_cam.png)](https://travis-ci.org/bosch-ros-pkg/usb_cam) -->
 =======
+# Introduction
+ARCHIVED - This Repo is no longer used for FLEXA since the changes to use Ethernet IP Camera instead of USB Camera
+
 #### Changes Made to this Fork
 This fork implements support for a few formats not supported by the original `usb_cam`. In particular, support for `H264` with `YUV420` pixel formats and `MJPEG` with `YUVJ422` pixel formats. The motivation for modifying this fork was because the USB webcam we had simply did not work with `usb_cam`, because it did not output video in the formats supported by `usb_cam`.
 
